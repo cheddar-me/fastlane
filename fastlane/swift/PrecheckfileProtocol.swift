@@ -1,11 +1,11 @@
 // PrecheckfileProtocol.swift
-// Copyright (c) 2021 FastlaneTools
+// Copyright (c) 2023 FastlaneTools
 
-public protocol PrecheckfileProtocol: class {
+public protocol PrecheckfileProtocol: AnyObject {
     /// Path to your App Store Connect API Key JSON file (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-json-file)
     var apiKeyPath: String? { get }
 
-    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#use-return-value-and-pass-in-as-an-option)
+    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-hash-option)
     var apiKey: [String: Any]? { get }
 
     /// The bundle identifier of your app
@@ -52,4 +52,4 @@ public extension PrecheckfileProtocol {
 
 // Please don't remove the lines below
 // They are used to detect outdated files
-// FastlaneRunnerAPIVersion [0.9.66]
+// FastlaneRunnerAPIVersion [0.9.116]

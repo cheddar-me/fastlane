@@ -59,6 +59,14 @@ module Fastlane
           command << "--synchronous"
         end
 
+        if params[:no_overwrite]
+          command << "--no-overwrite"
+        end
+
+        if params[:local_only]
+          command << "--local-only"
+        end
+
         result = Actions.sh(command.join(' '))
         UI.success("Successfully pushed Podspec ⬆️ ")
         return result
@@ -104,7 +112,6 @@ module Fastlane
           FastlaneCore::ConfigItem.new(key: :sources,
                                        description: "The sources of repos you want the pod spec to lint with, separated by commas",
                                        optional: true,
-                                       is_string: false,
                                        type: Array,
                                        verify_block: proc do |value|
                                          UI.user_error!("Sources must be an array.") unless value.kind_of?(Array)
@@ -113,7 +120,6 @@ module Fastlane
           FastlaneCore::ConfigItem.new(key: :swift_version,
                                        description: "The SWIFT_VERSION that should be used to lint the spec. This takes precedence over a .swift-version file",
                                        optional: true,
-                                       is_string: true,
                                        env_name: "FL_POD_PUSH_SWIFT_VERSION"),
           FastlaneCore::ConfigItem.new(key: :skip_import_validation,
                                        description: "Lint skips validating that the pod can be imported",
@@ -145,7 +151,17 @@ module Fastlane
                                        description: "If validation depends on other recently pushed pods, synchronize",
                                        optional: true,
                                        type: Boolean,
-                                       env_name: "FL_POD_PUSH_SYNCHRONOUS")
+                                       env_name: "FL_POD_PUSH_SYNCHRONOUS"),
+          FastlaneCore::ConfigItem.new(key: :no_overwrite,
+                                       description: "Disallow pushing that would overwrite an existing spec",
+                                       optional: true,
+                                       type: Boolean,
+                                       env_name: "FL_POD_PUSH_NO_OVERWRITE"),
+          FastlaneCore::ConfigItem.new(key: :local_only,
+                                       description: "Does not perform the step of pushing REPO to its remote",
+                                       optional: true,
+                                       type: Boolean,
+                                       env_name: "FL_POD_PUSH_LOCAL_ONLY")
         ]
       end
 

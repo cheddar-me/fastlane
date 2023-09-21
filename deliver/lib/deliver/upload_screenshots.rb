@@ -145,7 +145,7 @@ module Deliver
         if duplicate
           UI.message("Previous uploaded. Skipping '#{screenshot.path}'...")
         else
-          UI.verbose("Queued uplaod sceeenshot job for #{localization.locale} #{app_screenshot_set.screenshot_display_type} #{screenshot.path}")
+          UI.verbose("Queued upload sceeenshot job for #{localization.locale} #{app_screenshot_set.screenshot_display_type} #{screenshot.path}")
           worker.enqueue(UploadScreenshotJob.new(app_screenshot_set, screenshot.path))
           number_of_screenshots_per_set[app_screenshot_set] += 1
         end
@@ -157,7 +157,7 @@ module Deliver
 
       UI.verbose('Uploading jobs are completed')
 
-      Helper.show_loading_indicator("Waiting for all the screenshots processed...")
+      Helper.show_loading_indicator("Waiting for all the screenshots to finish being processed...")
       states = wait_for_complete(iterator)
       Helper.hide_loading_indicator
       retry_upload_screenshots_if_needed(iterator, states, total_number_of_screenshots, tries, localizations, screenshots_per_language)

@@ -19,11 +19,12 @@ module Fastlane
 
         payload = {
           'tag_name' => params[:tag_name],
-          'name' => params[:name],
-          'body' => params[:description],
           'draft' => !!params[:is_draft],
-          'prerelease' => !!params[:is_prerelease]
+          'prerelease' => !!params[:is_prerelease],
+          'generate_release_notes' => !!params[:is_generate_release_notes]
         }
+        payload['name'] = params[:name] if params[:name]
+        payload['body'] = params[:description] if params[:description]
         payload['target_commitish'] = params[:commitish] if params[:commitish]
 
         GithubApiAction.run(
@@ -48,8 +49,7 @@ module Fastlane
               UI.user_error!("You are not authorized to access #{repo_name}, please make sure you provided a valid API token (GITHUB_API_TOKEN)")
             end,
             '*' => proc do |result|
-              UI.error("GitHub responded with #{result[:status]}:#{result[:body]}")
-              return nil
+              UI.user_error!("GitHub responded with #{result[:status]}:#{result[:body]}")
             end
           }
         ) do |result|
@@ -180,7 +180,6 @@ module Fastlane
                                        conflicting_options: [:api_bearer],
                                        sensitive: true,
                                        code_gen_sensitive: true,
-                                       is_string: true,
                                        default_value: ENV["GITHUB_API_TOKEN"],
                                        default_value_dynamic: true,
                                        optional: true),
@@ -195,22 +194,18 @@ module Fastlane
           FastlaneCore::ConfigItem.new(key: :tag_name,
                                        env_name: "FL_SET_GITHUB_RELEASE_TAG_NAME",
                                        description: "Pass in the tag name",
-                                       is_string: true,
                                        optional: false),
           FastlaneCore::ConfigItem.new(key: :name,
                                        env_name: "FL_SET_GITHUB_RELEASE_NAME",
                                        description: "Name of this release",
-                                       is_string: true,
                                        optional: true),
           FastlaneCore::ConfigItem.new(key: :commitish,
                                        env_name: "FL_SET_GITHUB_RELEASE_COMMITISH",
                                        description: "Specifies the commitish value that determines where the Git tag is created from. Can be any branch or commit SHA. Unused if the Git tag already exists. Default: the repository's default branch (usually master)",
-                                       is_string: true,
                                        optional: true),
           FastlaneCore::ConfigItem.new(key: :description,
                                        env_name: "FL_SET_GITHUB_RELEASE_DESCRIPTION",
                                        description: "Description of this release",
-                                       is_string: true,
                                        optional: true,
                                        default_value: Actions.lane_context[SharedValues::FL_CHANGELOG],
                                        default_value_dynamic: true),
@@ -219,18 +214,23 @@ module Fastlane
                                        description: "Whether the release should be marked as draft",
                                        optional: true,
                                        default_value: false,
-                                       is_string: false),
+                                       type: Boolean),
           FastlaneCore::ConfigItem.new(key: :is_prerelease,
                                        env_name: "FL_SET_GITHUB_RELEASE_IS_PRERELEASE",
                                        description: "Whether the release should be marked as prerelease",
                                        optional: true,
                                        default_value: false,
-                                       is_string: false),
+                                       type: Boolean),
+          FastlaneCore::ConfigItem.new(key: :is_generate_release_notes,
+                                       env_name: "FL_SET_GITHUB_RELEASE_IS_GENERATE_RELEASE_NOTES",
+                                       description: "Whether the name and body of this release should be generated automatically",
+                                       optional: true,
+                                       default_value: false,
+                                       type: Boolean),
           FastlaneCore::ConfigItem.new(key: :upload_assets,
                                        env_name: "FL_SET_GITHUB_RELEASE_UPLOAD_ASSETS",
                                        description: "Path to assets to be uploaded with the release",
                                        optional: true,
-                                       is_string: false,
                                        type: Array,
                                        verify_block: proc do |value|
                                          UI.user_error!("upload_assets must be an Array of paths to assets") unless value.kind_of?(Array)

@@ -78,6 +78,11 @@
 # new features May 2021
 # 1. fix entitlements merging when changing team
 #
+# new features June 2021
+# 1. fix the way app entitlements are extracted
+#
+# new features October 2021
+# 1. change codesign signatue to use --generate-entitlement-der to include DER encoded entitlements
 
 # Logging functions
 
@@ -544,7 +549,7 @@ function resign {
         do
             if [[ "$assetpack" == *.assetpack ]]; then
                 rm -rf $assetpack/_CodeSignature
-                /usr/bin/codesign ${VERBOSE} ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" "$assetpack"
+                /usr/bin/codesign ${VERBOSE} --generate-entitlement-der ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" "$assetpack"
                 checkStatus
             else
                 log "Ignoring non-assetpack: $assetpack"
@@ -566,7 +571,7 @@ function resign {
                 log "Resigning '$framework'"
                 # Must not qote KEYCHAIN_FLAG because it needs to be unwrapped and passed to codesign with spaces
                 # shellcheck disable=SC2086
-                /usr/bin/codesign ${VERBOSE} ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" "$framework"
+                /usr/bin/codesign ${VERBOSE} --generate-entitlement-der ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" "$framework"
                 checkStatus
             else
                 log "Ignoring non-framework: $framework"
@@ -620,7 +625,7 @@ function resign {
             log "Creating an archived-expanded-entitlements.xcent file for Xcode 9 builds or earlier"
             cp -f "$ENTITLEMENTS" "$APP_PATH/archived-expanded-entitlements.xcent"
         fi
-        /usr/bin/codesign ${VERBOSE} -f -s "$CERTIFICATE" --entitlements "$ENTITLEMENTS" "$APP_PATH"
+        /usr/bin/codesign ${VERBOSE} --generate-entitlement-der -f -s "$CERTIFICATE" --entitlements "$ENTITLEMENTS" "$APP_PATH"
         checkStatus
     elif  [[ -n "${USE_APP_ENTITLEMENTS}" ]]; then
         # Extract entitlements from provisioning profile and from the app binary
@@ -642,7 +647,7 @@ function resign {
         # Get the old and new app identifier (prefix)
         APP_ID_KEY="application-identifier"
         # Extract just the identifier from the value
-        # Use the fact that we are after some identifer, which is always at the start of the string
+        # Use the fact that we are after some identifier, which is always at the start of the string
         OLD_APP_ID=$(PlistBuddy -c "Print $APP_ID_KEY" "$APP_ENTITLEMENTS" | grep -E '^[A-Z0-9]*' -o | tr -d '\n')
         NEW_APP_ID=$(PlistBuddy -c "Print $APP_ID_KEY" "$PROFILE_ENTITLEMENTS" | grep -E '^[A-Z0-9]*' -o | tr -d '\n')
 
@@ -788,7 +793,7 @@ function resign {
 
             # Get the entry from app's entitlements
             # Read it with PlistBuddy as XML, then strip the header and <plist></plist> part
-            ENTITLEMENTS_VALUE="$(PlistBuddy -x -c "Print $KEY" "$APP_ENTITLEMENTS" 2>/dev/null | /usr/bin/sed -e 's,.*<plist[^>]*>\(.*\)</plist>,\1,g')"
+            ENTITLEMENTS_VALUE="$(PlistBuddy -x -c "Print $KEY" "$APP_ENTITLEMENTS" 2>/dev/null | tr -d '\n' | /usr/bin/sed -e 's,.*<plist[^>]*>\(.*\)</plist>,\1,g')"
             if [[ -z "$ENTITLEMENTS_VALUE" ]]; then
                 log "No value for '$KEY'"
                 continue
@@ -801,11 +806,11 @@ function resign {
             if [[ "$ID_TYPE" == "APP_ID" ]]; then
                 # Replace old value with new value in patched entitlements
                 log "Replacing old app ID '$OLD_APP_ID' with new app ID '$NEW_APP_ID'"
-                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | sed "s/$OLD_APP_ID/$NEW_APP_ID/g")
+                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | /usr/bin/sed -e "s/$OLD_APP_ID/$NEW_APP_ID/g")
             elif [[ "$ID_TYPE" == "TEAM_ID" ]]; then
                 # Replace old team identifier with new value
                 log "Replacing old team ID '$OLD_TEAM_ID' with new team ID '$NEW_TEAM_ID'"
-                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | sed "s/$OLD_TEAM_ID/$NEW_TEAM_ID/g")
+                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | /usr/bin/sed -e "s/$OLD_TEAM_ID/$NEW_TEAM_ID/g")
             elif [[ "$ID_TYPE" == "ICLOUD_ENV" ]]; then
                 # Add specific iCloud Environment key to patched entitlements
                 # This value is set by Xcode during export (manually selected for Development and AdHoc, automatically set to Production for Store)
@@ -823,14 +828,14 @@ function resign {
                     fi
                 fi
 
-                OLD_ICLOUD_ENV=$(echo "$ENTITLEMENTS_VALUE" | sed -e 's,<string>\(.*\)</string>,\1,g')
+                OLD_ICLOUD_ENV=$(echo "$ENTITLEMENTS_VALUE" | /usr/bin/sed -e 's,<string>\(.*\)</string>,\1,g')
                 if [[ "$certificate_name" =~ "Distribution:" ]]; then
                     NEW_ICLOUD_ENV="Production"
                 else
                     NEW_ICLOUD_ENV="Development"
                 fi
                 log "Replacing iCloud environment '$OLD_ICLOUD_ENV' with '$NEW_ICLOUD_ENV'"
-                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | sed "s/$OLD_ICLOUD_ENV/$NEW_ICLOUD_ENV/g")
+                ENTITLEMENTS_VALUE=$(echo "$ENTITLEMENTS_VALUE" | /usr/bin/sed -e "s/$OLD_ICLOUD_ENV/$NEW_ICLOUD_ENV/g")
             fi
 
             # Remove the entry for current key from profisioning profile entitlements (if exists)
@@ -841,21 +846,8 @@ function resign {
             # otherwise it interprets they key path as nested keys
             # TODO: Should be able to replace with echo ${KEY//\./\\\\.} and remove shellcheck disable directive
             # shellcheck disable=SC2001
-            PLUTIL_KEY=$(echo "$KEY" | /usr/bin/sed 's/\./\\\./g')
+            PLUTIL_KEY=$(echo "$KEY" | /usr/bin/sed -e 's/\./\\\./g')
             plutil -insert "$PLUTIL_KEY" -xml "$ENTITLEMENTS_VALUE" "$PATCHED_ENTITLEMENTS"
-
-            # Patch the ID value if specified
-            if [[ "$ID_TYPE" == "APP_ID" ]]; then
-                # Replace old value with new value in patched entitlements
-                log "Replacing old app identifier prefix '$OLD_APP_ID' with new value '$NEW_APP_ID'"
-                /usr/bin/sed -i .bak "s/$OLD_APP_ID/$NEW_APP_ID/g" "$PATCHED_ENTITLEMENTS"
-            elif [[ "$ID_TYPE" == "TEAM_ID" ]]; then
-                # Replace old team identifier with new value
-                log "Replacing old team ID '$OLD_TEAM_ID' with new team ID: '$NEW_TEAM_ID'"
-                /usr/bin/sed -i .bak "s/$OLD_TEAM_ID/$NEW_TEAM_ID/g" "$PATCHED_ENTITLEMENTS"
-            else
-                continue
-            fi
         done
 
         # Replace old bundle ID with new bundle ID in patched entitlements
@@ -878,7 +870,7 @@ function resign {
             log "Creating an archived-expanded-entitlements.xcent file for Xcode 9 builds or earlier"
             cp -f "$PATCHED_ENTITLEMENTS" "$APP_PATH/archived-expanded-entitlements.xcent"
         fi
-        /usr/bin/codesign ${VERBOSE} -f -s "$CERTIFICATE" --entitlements "$PATCHED_ENTITLEMENTS" "$APP_PATH"
+        /usr/bin/codesign ${VERBOSE} --generate-entitlement-der -f -s "$CERTIFICATE" --entitlements "$PATCHED_ENTITLEMENTS" "$APP_PATH"
         checkStatus
     else
         log "Extracting entitlements from provisioning profile"
@@ -892,7 +884,7 @@ function resign {
         fi
         # Must not qote KEYCHAIN_FLAG because it needs to be unwrapped and passed to codesign with spaces
         # shellcheck disable=SC2086
-        /usr/bin/codesign ${VERBOSE} ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" --entitlements "$TEMP_DIR/newEntitlements" "$APP_PATH"
+        /usr/bin/codesign ${VERBOSE} --generate-entitlement-der ${KEYCHAIN_FLAG} -f -s "$CERTIFICATE" --entitlements "$TEMP_DIR/newEntitlements" "$APP_PATH"
         checkStatus
     fi
 

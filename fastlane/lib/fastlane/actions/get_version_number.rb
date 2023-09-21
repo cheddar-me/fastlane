@@ -109,8 +109,10 @@ module Fastlane
           options = plist_files.keys
           selected = UI.select("What build configuration would you like to use?", options)
           plist_file = plist_files[selected]
-        else
+        elsif plist_files_count > 0
           plist_file = plist_files.values.first
+        else
+          return nil
         end
 
         # $(SRCROOT) is the path of where the XcodeProject is
@@ -131,9 +133,12 @@ module Fastlane
       end
 
       def self.get_version_number_from_plist!(plist_file)
+        return '$(MARKETING_VERSION)' if plist_file.nil?
+
         plist = Xcodeproj::Plist.read_from_path(plist_file)
         UI.user_error!("Unable to read plist: #{plist_file}") unless plist
 
+        return '${MARKETING_VERSION}' if plist["CFBundleShortVersionString"].nil?
         plist["CFBundleShortVersionString"]
       end
 
@@ -146,14 +151,14 @@ module Fastlane
       end
 
       def self.details
-        "This action will return the current version number set on your project."
+        "This action will return the current version number set on your project. It first looks in the plist and then for '$(MARKETING_VERSION)' in the build settings."
       end
 
       def self.available_options
         [
           FastlaneCore::ConfigItem.new(key: :xcodeproj,
                              env_name: "FL_VERSION_NUMBER_PROJECT",
-                             description: "Path to the Xcode project to read version number from, or its containing directory, optional. If ommitted, or if a directory is passed instead, it will use the first Xcode project found within the given directory, or the project root directory if none is passed",
+                             description: "Path to the Xcode project to read version number from, or its containing directory, optional. If omitted, or if a directory is passed instead, it will use the first Xcode project found within the given directory, or the project root directory if none is passed",
                              optional: true,
                              verify_block: proc do |value|
                                UI.user_error!("Please pass the path to the project or its containing directory, not the workspace path") if value.end_with?(".xcworkspace")

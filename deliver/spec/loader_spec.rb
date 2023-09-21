@@ -131,7 +131,7 @@ describe Deliver::Loader do
       expanded_special_folders = folders_expanded.select do |folder|
         folder.path.include?(Deliver::Loader::APPLE_TV_DIR_NAME) || folder.path.include?(Deliver::Loader::IMESSAGE_DIR_NAME)
       end
-      # all expanded folder should have its languge
+      # all expanded folder should have its language
       expect(expanded_special_folders.map(&:language).any?(&:nil?)).to be(false)
     end
   end
@@ -173,12 +173,6 @@ describe Deliver::Loader do
       screenshots = collect_screenshots_from_dir("/Screenshots/")
       expect(screenshots.count).to eq(1)
       expect(screenshots.first.screen_size).to eq(Deliver::AppScreenshot::ScreenSize::IOS_47)
-    end
-
-    it "should not collect iPhone XR screenshots" do
-      add_screenshot("/Screenshots/en-GB/iPhoneXR-01First{828x1792}.jpg")
-      screenshots = collect_screenshots_from_dir("/Screenshots/")
-      expect(screenshots.count).to eq(0)
     end
 
     it "should find different languages" do

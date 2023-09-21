@@ -1,5 +1,5 @@
 // LaneFileProtocol.swift
-// Copyright (c) 2021 FastlaneTools
+// Copyright (c) 2023 FastlaneTools
 
 //
 //  ** NOTE **
@@ -10,7 +10,7 @@
 
 import Foundation
 
-public protocol LaneFileProtocol: class {
+public protocol LaneFileProtocol: AnyObject {
     var fastlaneVersion: String { get }
     static func runLane(from fastfile: LaneFile?, named lane: String, with parameters: [String: String]) -> Bool
 
@@ -99,7 +99,7 @@ open class LaneFile: NSObject, LaneFileProtocol {
         #if !SWIFT_PACKAGE
             // When not in SPM environment, we load the Fastfile from its `className()`.
             loadFastfile()
-            guard let fastfileInstance = self.fastfileInstance as? Fastfile else {
+            guard let fastfileInstance = fastfileInstance as? Fastfile else {
                 let message = "Unable to instantiate class named: \(className())"
                 log(message: message)
                 fatalError(message)

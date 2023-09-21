@@ -81,7 +81,7 @@ describe Deliver::AppScreenshotIterator do
       end
     end
 
-    context 'when locale doens\'t match the one for given local screenshots' do
+    context 'when locale doesn\'t match the one for given local screenshots' do
       it 'should iterates nothing' do
         localization = double('Spaceship::ConnectAPI::AppStoreVersionLocalization', get_app_screenshot_sets: [], locale: ['fr-FR'])
         screenshots_per_language = { 'en-US' => [] }
@@ -119,7 +119,7 @@ describe Deliver::AppScreenshotIterator do
           .with(attributes: { screenshotDisplayType: screenshot.device_type })
           .and_return(app_screenshot_set)
         actual = described_class.new([localization]).each_local_screenshot(screenshots_per_language).to_a
-        expect(actual).to eq([[localization, app_screenshot_set, screenshot]])
+        expect(actual).to eq([[localization, app_screenshot_set, screenshot, 0]])
       end
     end
 
@@ -147,8 +147,10 @@ describe Deliver::AppScreenshotIterator do
         screenshots_per_language = { 'en-US' => [screenshot1, screenshot2], 'fr-FR' => [screenshot3, screenshot4] }
 
         actual = described_class.new([localization1, localization2]).each_local_screenshot(screenshots_per_language).to_a
-        expect(actual).to eq([[localization1, app_screenshot_set1, screenshot1], [localization1, app_screenshot_set1, screenshot2],
-                              [localization2, app_screenshot_set2, screenshot3], [localization2, app_screenshot_set2, screenshot4]])
+        expect(actual).to eq([[localization1, app_screenshot_set1, screenshot1, 0],
+                              [localization1, app_screenshot_set1, screenshot2, 1],
+                              [localization2, app_screenshot_set2, screenshot3, 0],
+                              [localization2, app_screenshot_set2, screenshot4, 1]])
       end
     end
   end

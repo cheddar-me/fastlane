@@ -1,6 +1,7 @@
 require_relative '../model'
 require_relative './build'
 
+# rubocop:disable Metrics/ClassLength
 module Spaceship
   class ConnectAPI
     class App
@@ -53,12 +54,12 @@ module Spaceship
         "contentRightsDeclaration" => "content_rights_declaration",
 
         "appStoreVersions" => "app_store_versions",
+        # This attribute is already deprecated. It will be removed in a future release.
         "prices" => "prices"
       })
 
       ESSENTIAL_INCLUDES = [
-        "appStoreVersions",
-        "prices"
+        "appStoreVersions"
       ].join(",")
 
       def self.type
@@ -100,10 +101,12 @@ module Spaceship
         return client.get_app(app_id: app_id, includes: includes).first
       end
 
-      def update(client: nil, attributes: nil, app_price_tier_id: nil, territory_ids: nil)
+      # Updates app attributes, price tier and availability of an app in territories
+      # Check Tunes patch_app method for explanation how to use territory_ids parameter with allow_removing_from_sale to remove app from sale
+      def update(client: nil, attributes: nil, app_price_tier_id: nil, territory_ids: nil, allow_removing_from_sale: false)
         client ||= Spaceship::ConnectAPI
         attributes = reverse_attr_mapping(attributes)
-        return client.patch_app(app_id: id, attributes: attributes, app_price_tier_id: app_price_tier_id, territory_ids: territory_ids)
+        return client.patch_app(app_id: id, attributes: attributes, app_price_tier_id: app_price_tier_id, territory_ids: territory_ids, allow_removing_from_sale: allow_removing_from_sale)
       end
 
       #
@@ -361,9 +364,8 @@ module Spaceship
       def get_build_deliveries(client: nil, filter: {}, includes: nil, limit: nil, sort: nil)
         client ||= Spaceship::ConnectAPI
         filter ||= {}
-        filter[:app] = id
 
-        resps = client.get_build_deliveries(filter: filter, includes: includes, limit: limit, sort: sort).all_pages
+        resps = client.get_build_deliveries(app_id: id, filter: filter, includes: includes, limit: limit, sort: sort).all_pages
         return resps.flat_map(&:to_models)
       end
 
@@ -385,14 +387,16 @@ module Spaceship
         return resps.flat_map(&:to_models)
       end
 
-      def create_beta_group(client: nil, group_name: nil, public_link_enabled: false, public_link_limit: 10_000, public_link_limit_enabled: false)
+      def create_beta_group(client: nil, group_name: nil, is_internal_group: false, public_link_enabled: false, public_link_limit: 10_000, public_link_limit_enabled: false, has_access_to_all_builds: nil)
         client ||= Spaceship::ConnectAPI
         resps = client.create_beta_group(
           app_id: id,
           group_name: group_name,
+          is_internal_group: is_internal_group,
           public_link_enabled: public_link_enabled,
           public_link_limit: public_link_limit,
-          public_link_limit_enabled: public_link_limit_enabled
+          public_link_limit_enabled: public_link_limit_enabled,
+          has_access_to_all_builds: has_access_to_all_builds
         ).all_pages
         return resps.flat_map(&:to_models).first
       end
@@ -414,6 +418,49 @@ module Spaceship
       end
 
       #
+      # Review Submissions
+      #
+
+      def get_ready_review_submission(client: nil, platform:, includes: nil)
+        client ||= Spaceship::ConnectAPI
+        filter = {
+          state: [
+            Spaceship::ConnectAPI::ReviewSubmission::ReviewSubmissionState::READY_FOR_REVIEW
+          ].join(","),
+          platform: platform
+        }
+
+        return get_review_submissions(client: client, filter: filter, includes: includes).first
+      end
+
+      def get_in_progress_review_submission(client: nil, platform:, includes: nil)
+        client ||= Spaceship::ConnectAPI
+        filter = {
+          state: [
+            Spaceship::ConnectAPI::ReviewSubmission::ReviewSubmissionState::WAITING_FOR_REVIEW,
+            Spaceship::ConnectAPI::ReviewSubmission::ReviewSubmissionState::IN_REVIEW,
+            Spaceship::ConnectAPI::ReviewSubmission::ReviewSubmissionState::UNRESOLVED_ISSUES
+          ].join(","),
+          platform: platform
+        }
+
+        return get_review_submissions(client: client, filter: filter, includes: includes).first
+      end
+
+      # appStoreVersionForReview,items
+      def get_review_submissions(client: nil, filter: {}, includes: nil, limit: nil, sort: nil)
+        client ||= Spaceship::ConnectAPI
+        resps = client.get_review_submissions(app_id: id, filter: filter, includes: includes, limit: limit, sort: sort).all_pages
+        return resps.flat_map(&:to_models)
+      end
+
+      def create_review_submission(client: nil, platform:)
+        client ||= Spaceship::ConnectAPI
+        resp = client.post_review_submission(app_id: id, platform: platform)
+        return resp.to_models.first
+      end
+
+      #
       # Users
       #
 
@@ -423,6 +470,14 @@ module Spaceship
           client.add_user_visible_apps(user_id: user_id, app_ids: [id])
         end
       end
+
+      def remove_users(client: nil, user_ids: nil)
+        client ||= Spaceship::ConnectAPI
+        user_ids.each do |user_id|
+          client.delete_user_visible_apps(user_id: user_id, app_ids: [id])
+        end
+      end
     end
   end
 end
+# rubocop:enable Metrics/ClassLength

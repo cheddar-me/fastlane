@@ -123,9 +123,13 @@ module FastlaneCore
     # Get all available schemes in an array
     def schemes
       @schemes ||= if workspace?
-                     workspace.schemes.reject do |k, v|
-                       v.include?("Pods/Pods.xcodeproj")
-                     end.keys
+                     if FastlaneCore::Env.truthy?("FASTLANE_INCLUDE_PODS_PROJECT_SCHEMES")
+                       workspace.schemes.keys
+                     else
+                       workspace.schemes.reject do |k, v|
+                         v.include?("Pods/Pods.xcodeproj")
+                       end.keys
+                     end
                    else
                      Xcodeproj::Project.schemes(path)
                    end
@@ -352,7 +356,7 @@ module FastlaneCore
       # This xcodebuild bug is fixed in Xcode 8.3 so 'clean' it's not necessary anymore
       # See: https://github.com/fastlane/fastlane/pull/5626
       if FastlaneCore::Helper.xcode_at_least?('8.3')
-        command = "xcodebuild -showBuildSettings #{xcodebuild_parameters.join(' ')}"
+        command = "xcodebuild -showBuildSettings #{xcodebuild_parameters.join(' ')}#{xcodebuild_destination_parameter}"
       else
         command = "xcodebuild clean -showBuildSettings #{xcodebuild_parameters.join(' ')}"
       end
@@ -361,8 +365,25 @@ module FastlaneCore
 
     def build_xcodebuild_resolvepackagedependencies_command
       return nil if options[:skip_package_dependencies_resolution]
-      command = "xcodebuild -resolvePackageDependencies #{xcodebuild_parameters.join(' ')}"
+      command = "xcodebuild -resolvePackageDependencies #{xcodebuild_parameters.join(' ')}#{xcodebuild_destination_parameter}"
       command
+    end
+
+    def xcodebuild_destination_parameter
+      # Xcode13+ xcodebuild command 'without destination parameter' generates annoying warnings
+      # See: https://github.com/fastlane/fastlane/issues/19579
+      destination_parameter = ""
+      xcode_at_least_13 = FastlaneCore::Helper.xcode_at_least?("13")
+      if xcode_at_least_13 && options[:destination]
+        begin
+          destination_parameter = " " + "-destination #{options[:destination].shellescape}"
+        rescue => ex
+          # xcodebuild command can continue without destination parameter, so
+          # we really don't care about this exception if something goes wrong with shellescape
+          UI.important("Failed to set destination parameter for xcodebuild command: #{ex}")
+        end
+      end
+      destination_parameter
     end
 
     # Get the build settings for our project

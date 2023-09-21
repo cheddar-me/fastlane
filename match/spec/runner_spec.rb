@@ -52,22 +52,7 @@ describe Match do
             git_bearer_authorization: nil,
             git_private_key: nil,
             type: config[:type],
-            generate_apple_certs: generate_apple_certs,
-            platform: config[:platform],
-            google_cloud_bucket_name: "",
-            google_cloud_keys_file: "",
-            google_cloud_project_id: "",
-            s3_region: nil,
-            s3_access_key: nil,
-            s3_secret_access_key: nil,
-            s3_bucket: nil,
-            s3_object_prefix: nil,
-            readonly: false,
-            username: values[:username],
-            team_id: nil,
-            team_name: nil,
-            api_key_path: nil,
-            api_key: nil
+            platform: config[:platform]
           ).and_return(fake_storage)
 
           expect(fake_storage).to receive(:download).and_return(nil)
@@ -96,6 +81,7 @@ describe Match do
           expect(spaceship).to receive(:certificates_exists).and_return(true)
           expect(spaceship).to receive(:profile_exists).and_return(true)
           expect(spaceship).to receive(:bundle_identifier_exists).and_return(true)
+          expect(Match::Utils).to receive(:get_cert_info).and_return([["Common Name", "fastlane certificate name"]])
 
           Match::Runner.new.run(config)
 
@@ -108,6 +94,8 @@ describe Match do
           profile_path = File.expand_path('~/Library/MobileDevice/Provisioning Profiles/98264c6b-5151-4349-8d0f-66691e48ae35.mobileprovision')
           expect(ENV[Match::Utils.environment_variable_name_profile_path(app_identifier: "tools.fastlane.app",
                                                                          type: "appstore")]).to eql(profile_path)
+          expect(ENV[Match::Utils.environment_variable_name_certificate_name(app_identifier: "tools.fastlane.app",
+                                                                             type: "appstore")]).to eql("fastlane certificate name")
         end
 
         it "uses existing certificates and profiles if they exist", requires_security: true do
@@ -137,22 +125,7 @@ describe Match do
             git_bearer_authorization: nil,
             git_private_key: nil,
             type: config[:type],
-            generate_apple_certs: generate_apple_certs,
-            platform: config[:platform],
-            google_cloud_bucket_name: "",
-            google_cloud_keys_file: "",
-            google_cloud_project_id: "",
-            s3_region: nil,
-            s3_access_key: nil,
-            s3_secret_access_key: nil,
-            s3_bucket: nil,
-            s3_object_prefix: nil,
-            readonly: false,
-            username: values[:username],
-            team_id: nil,
-            team_name: nil,
-            api_key_path: nil,
-            api_key: nil
+            platform: config[:platform]
           ).and_return(fake_storage)
 
           expect(fake_storage).to receive(:download).and_return(nil)
@@ -178,6 +151,8 @@ describe Match do
           expect(spaceship).to receive(:certificates_exists).and_return(true)
           expect(spaceship).to receive(:profile_exists).and_return(true)
           expect(spaceship).to receive(:bundle_identifier_exists).and_return(true)
+          expect(Match::Utils).to receive(:get_cert_info)
+          expect(Match::Utils).to receive(:get_cert_info).and_return([["Common Name", "fastlane certificate name"]])
 
           allow(Match::Utils).to receive(:is_cert_valid?).and_return(true)
 
@@ -192,6 +167,8 @@ describe Match do
           profile_path = File.expand_path('~/Library/MobileDevice/Provisioning Profiles/736590c3-dfe8-4c25-b2eb-2404b8e65fb8.mobileprovision')
           expect(ENV[Match::Utils.environment_variable_name_profile_path(app_identifier: "tools.fastlane.app",
                                                                          type: "appstore")]).to eql(profile_path)
+          expect(ENV[Match::Utils.environment_variable_name_certificate_name(app_identifier: "tools.fastlane.app",
+                                                                             type: "appstore")]).to eql("fastlane certificate name")
         end
 
         it "fails because of an outdated certificate", requires_security: true do
@@ -221,22 +198,7 @@ describe Match do
             git_bearer_authorization: nil,
             git_private_key: nil,
             type: config[:type],
-            generate_apple_certs: generate_apple_certs,
-            platform: config[:platform],
-            google_cloud_bucket_name: "",
-            google_cloud_keys_file: "",
-            google_cloud_project_id: "",
-            s3_region: nil,
-            s3_access_key: nil,
-            s3_secret_access_key: nil,
-            s3_bucket: nil,
-            s3_object_prefix: nil,
-            readonly: false,
-            username: values[:username],
-            team_id: nil,
-            team_name: nil,
-            api_key_path: nil,
-            api_key: nil
+            platform: config[:platform]
           ).and_return(fake_storage)
 
           expect(fake_storage).to receive(:download).and_return(nil)
@@ -291,22 +253,7 @@ describe Match do
             git_bearer_authorization: nil,
             git_private_key: nil,
             type: config[:type],
-            generate_apple_certs: generate_apple_certs,
-            platform: config[:platform],
-            google_cloud_bucket_name: "",
-            google_cloud_keys_file: "",
-            google_cloud_project_id: "",
-            s3_region: nil,
-            s3_access_key: nil,
-            s3_secret_access_key: nil,
-            s3_bucket: nil,
-            s3_object_prefix: nil,
-            readonly: false,
-            username: values[:username],
-            team_id: nil,
-            team_name: nil,
-            api_key_path: nil,
-            api_key: nil
+            platform: config[:platform]
           ).and_return(fake_storage)
 
           expect(fake_storage).to receive(:download).and_return(nil)
@@ -370,6 +317,19 @@ describe Match do
 
         runner = Match::Runner.new
         expect(runner.device_count_different?(profile: profile_file, platform: :ios)).to be(true)
+      end
+
+      it "device is apple silicon mac" do
+        expect(FastlaneCore::ProvisioningProfile).to receive(:parse).twice.and_return(parsed_profile)
+        expect(Spaceship::ConnectAPI::Profile).to receive(:all).twice.and_return([profile])
+        expect(Spaceship::ConnectAPI::Device).to receive(:all).twice.and_return([profile_device])
+
+        expect(profile_device).to receive(:device_class).twice.and_return(Spaceship::ConnectAPI::Device::DeviceClass::APPLE_SILICON_MAC)
+        expect(profile_device).to receive(:enabled?).and_return(true)
+
+        runner = Match::Runner.new
+        expect(runner.device_count_different?(profile: profile_file, platform: :ios, include_mac_in_profiles: false)).to be(true)
+        expect(runner.device_count_different?(profile: profile_file, platform: :ios, include_mac_in_profiles: true)).to be(false)
       end
     end
   end

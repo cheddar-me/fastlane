@@ -397,6 +397,30 @@ describe Spaceship::ConnectAPI::TestFlight::Client do
         end
       end
 
+      context 'delete_beta_groups_from_build' do
+        let(:path) { "builds" }
+        let(:build_id) { "123" }
+        let(:beta_group_ids) { ["123", "456"] }
+        let(:body) do
+          {
+            data: beta_group_ids.map do |id|
+              {
+                type: "betaGroups",
+                id: id
+              }
+            end
+          }
+        end
+
+        it 'succeeds' do
+          url = "#{path}/#{build_id}/relationships/betaGroups"
+          req_mock = test_request_body(url, body)
+
+          expect(client).to receive(:request).with(:delete).and_yield(req_mock).and_return(req_mock)
+          client.delete_beta_groups_from_build(build_id: build_id, beta_group_ids: beta_group_ids)
+        end
+      end
+
       context 'patch_beta_groups' do
         let(:path) { "betaGroups" }
         let(:beta_group_id) { "123" }
@@ -475,6 +499,38 @@ describe Spaceship::ConnectAPI::TestFlight::Client do
 
           expect(client).to receive(:request).with(:post).and_yield(req_mock).and_return(req_mock)
           client.post_bulk_beta_tester_assignments(beta_group_id: beta_group_id, beta_testers: beta_testers)
+        end
+      end
+
+      context 'post_beta_tester_assignment' do
+        let(:path) { "betaTesters" }
+        let(:beta_group_ids) { ["123", "456"] }
+        let(:attributes) { { email: "email1", firstName: "first1", lastName: "last1" } }
+        let(:body) do
+          {
+            data: {
+              attributes: attributes,
+              relationships: {
+                betaGroups: {
+                  data: beta_group_ids.map do |id|
+                    {
+                      type: "betaGroups",
+                      id: id
+                    }
+                  end
+                }
+              },
+              type: "betaTesters"
+            }
+          }
+        end
+
+        it 'succeeds' do
+          url = path
+          req_mock = test_request_body(url, body)
+
+          expect(client).to receive(:request).with(:post).and_yield(req_mock).and_return(req_mock)
+          client.post_beta_tester_assignment(beta_group_ids: beta_group_ids, attributes: attributes)
         end
       end
 
@@ -570,6 +626,78 @@ describe Spaceship::ConnectAPI::TestFlight::Client do
           req_mock = test_request_body(url, body)
           expect(client).to receive(:request).with(:delete).and_yield(req_mock).and_return(req_mock)
           client.delete_beta_testers_from_app(beta_tester_ids: beta_tester_ids, app_id: app_id)
+        end
+      end
+
+      context 'add_beta_tester_to_builds' do
+        let(:beta_tester_id) { "123" }
+        let(:build_ids) { ["1234", "5678"] }
+        let(:path) { "betaTesters/#{beta_tester_id}/relationships/builds" }
+        let(:body) do
+          {
+            data: build_ids.map do |id|
+              {
+                type: "builds",
+                id: id
+              }
+            end
+          }
+        end
+
+        it 'succeeds' do
+          url = path
+          req_mock = test_request_body(url, body)
+
+          expect(client).to receive(:request).with(:post).and_yield(req_mock).and_return(req_mock)
+          client.add_beta_tester_to_builds(beta_tester_id: beta_tester_id, build_ids: build_ids)
+        end
+      end
+
+      context 'add_beta_testers_to_build' do
+        let(:path) { "builds" }
+        let(:build_id) { "123" }
+        let(:beta_tester_ids) { ["123", "456"] }
+        let(:body) do
+          {
+            data: beta_tester_ids.map do |id|
+              {
+                type: "betaTesters",
+                id: id
+              }
+            end
+          }
+        end
+
+        it 'succeeds' do
+          url = "#{path}/#{build_id}/relationships/individualTesters"
+          req_mock = test_request_body(url, body)
+
+          expect(client).to receive(:request).with(:post).and_yield(req_mock).and_return(req_mock)
+          client.add_beta_testers_to_build(build_id: build_id, beta_tester_ids: beta_tester_ids)
+        end
+      end
+
+      context 'delete_beta_testers_from_build' do
+        let(:path) { "builds" }
+        let(:build_id) { "123" }
+        let(:beta_tester_ids) { ["123", "456"] }
+        let(:body) do
+          {
+            data: beta_tester_ids.map do |id|
+              {
+                type: "betaTesters",
+                id: id
+              }
+            end
+          }
+        end
+
+        it 'succeeds' do
+          url = "#{path}/#{build_id}/relationships/individualTesters"
+          req_mock = test_request_body(url, body)
+
+          expect(client).to receive(:request).with(:delete).and_yield(req_mock).and_return(req_mock)
+          client.delete_beta_testers_from_build(build_id: build_id, beta_tester_ids: beta_tester_ids)
         end
       end
     end
@@ -677,7 +805,8 @@ describe Spaceship::ConnectAPI::TestFlight::Client do
 
     describe "buildDeliveries" do
       context 'get_build_deliveries' do
-        let(:path) { "buildDeliveries" }
+        let(:app_id) { "123" }
+        let(:path) { "apps/#{app_id}/buildDeliveries" }
         let(:version) { "189" }
         let(:default_params) { {} }
 
@@ -685,14 +814,14 @@ describe Spaceship::ConnectAPI::TestFlight::Client do
           params = {}
           req_mock = test_request_params(path, params.merge(default_params))
           expect(client).to receive(:request).with(:get).and_yield(req_mock).and_return(req_mock)
-          client.get_build_deliveries
+          client.get_build_deliveries(app_id: app_id)
         end
 
         it 'succeeds with filter' do
           params = { filter: { version: version } }
           req_mock = test_request_params(path, params.merge(default_params))
           expect(client).to receive(:request).with(:get).and_yield(req_mock).and_return(req_mock)
-          client.get_build_deliveries(**params)
+          client.get_build_deliveries(app_id: app_id, **params)
         end
       end
     end

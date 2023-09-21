@@ -1,4 +1,6 @@
 require_relative '../model'
+require_relative 'user'
+
 module Spaceship
   class ConnectAPI
     class UserInvitation
@@ -11,28 +13,24 @@ module Spaceship
       attr_accessor :all_apps_visible
       attr_accessor :provisioning_allowed
 
+      attr_accessor :visible_apps
+
       attr_mapping({
         "firstName" => "first_name",
         "lastName" => "last_name",
         "email" => "email",
         "roles" => "roles",
         "allAppsVisible" => "all_apps_visible",
-        "provisioningAllowed" => "provisioning_allowed"
+        "provisioningAllowed" => "provisioning_allowed",
+
+        "visibleApps" => "visible_apps"
       })
 
-      module UserRole
-        ADMIN = "ADMIN"
-        FINANCE = "FINANCE"
-        TECHNICAL = "TECHNICAL"
-        SALES = "SALES"
-        MARKETING = "MARKETING"
-        DEVELOPER = "DEVELOPER"
-        ACCOUNT_HOLDER = "ACCOUNT_HOLDER"
-        READ_ONLY = "READ_ONLY"
-        APP_MANAGER = "APP_MANAGER"
-        ACCESS_TO_REPORTS = "ACCESS_TO_REPORTS"
-        CUSTOMER_SUPPORT = "CUSTOMER_SUPPORT"
-      end
+      ESSENTIAL_INCLUDES = [
+        "visibleApps"
+      ].join(",")
+
+      UserRole = Spaceship::ConnectAPI::User::UserRole
 
       def self.type
         return "userInvitations"
@@ -42,18 +40,23 @@ module Spaceship
       # Managing invitations
       #
 
-      def self.all(client: nil, filter: {}, includes: nil, sort: nil)
+      def self.all(client: nil, filter: {}, includes: ESSENTIAL_INCLUDES, sort: nil)
         client ||= Spaceship::ConnectAPI
         resps = client.get_user_invitations(filter: filter, includes: includes, sort: sort).all_pages
         return resps.flat_map(&:to_models)
       end
 
-      def self.find(client: nil, email: nil, includes: nil)
+      def self.find(client: nil, email: nil, includes: ESSENTIAL_INCLUDES)
         client ||= Spaceship::ConnectAPI
         return all(client: client, filter: { email: email }, includes: includes)
       end
 
-      def self.create(client: nil, email: nil, first_name: nil, last_name: nil, roles: [], provisioning_allowed: nil, all_apps_visible: nil)
+      # Create and post user invitation
+      # App Store Connect allows for the following combinations of `all_apps_visible` and `visible_app_ids`:
+      # - if `all_apps_visible` is `nil`, you don't have to provide values for `visible_app_ids`
+      # - if `all_apps_visible` is false, you must provide values for `visible_app_ids`.
+      # - if `all_apps_visible` is true, you must not provide values for `visible_app_ids`.
+      def self.create(client: nil, email: nil, first_name: nil, last_name: nil, roles: [], provisioning_allowed: nil, all_apps_visible: nil, visible_app_ids: [])
         client ||= Spaceship::ConnectAPI
         resp = client.post_user_invitation(
           email: email,
@@ -61,7 +64,8 @@ module Spaceship
           last_name: last_name,
           roles: roles,
           provisioning_allowed: provisioning_allowed,
-          all_apps_visible: all_apps_visible
+          all_apps_visible: all_apps_visible,
+          visible_app_ids: visible_app_ids
         )
         return resp.to_models.first
       end
@@ -69,6 +73,13 @@ module Spaceship
       def delete!(client: nil)
         client ||= Spaceship::ConnectAPI
         client.delete_user_invitation(user_invitation_id: id)
+      end
+
+      # Get visible apps for invited user
+      def get_visible_apps(client: nil, limit: nil)
+        client ||= Spaceship::ConnectAPI
+        resp = client.get_user_invitation_visible_apps(user_invitation_id: id, limit: limit)
+        return resp.to_models
       end
     end
   end

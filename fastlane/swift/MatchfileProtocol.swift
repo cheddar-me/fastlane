@@ -1,8 +1,8 @@
 // MatchfileProtocol.swift
-// Copyright (c) 2021 FastlaneTools
+// Copyright (c) 2023 FastlaneTools
 
-public protocol MatchfileProtocol: class {
-    /// Define the profile type, can be appstore, adhoc, development, enterprise, developer_id, mac_installer_distribution
+public protocol MatchfileProtocol: AnyObject {
+    /// Define the profile type, can be appstore, adhoc, development, enterprise, developer_id, mac_installer_distribution, developer_id_installer
     var type: String { get }
 
     /// Create additional cert types needed for macOS installers (valid values: mac_installer_distribution, developer_id_installer)
@@ -23,7 +23,7 @@ public protocol MatchfileProtocol: class {
     /// Path to your App Store Connect API Key JSON file (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-json-file)
     var apiKeyPath: String? { get }
 
-    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#use-return-value-and-pass-in-as-an-option)
+    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-hash-option)
     var apiKey: [String: Any]? { get }
 
     /// Your Apple ID Username
@@ -74,6 +74,9 @@ public protocol MatchfileProtocol: class {
     /// ID of the Google Cloud project to use for authentication
     var googleCloudProjectId: String? { get }
 
+    /// Skips confirming to use the system google account
+    var skipGoogleCloudAccountConfirmation: Bool { get }
+
     /// Name of the S3 region
     var s3Region: String? { get }
 
@@ -89,6 +92,21 @@ public protocol MatchfileProtocol: class {
     /// Prefix to be used on all objects uploaded to S3
     var s3ObjectPrefix: String? { get }
 
+    /// Skip encryption of all objects uploaded to S3. WARNING: only enable this on S3 buckets with sufficiently restricted permissions and server-side encryption enabled. See https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingEncryption.html
+    var s3SkipEncryption: Bool { get }
+
+    /// GitLab Project Path (i.e. 'gitlab-org/gitlab')
+    var gitlabProject: String? { get }
+
+    /// GitLab Host (i.e. 'https://gitlab.com')
+    var gitlabHost: String { get }
+
+    /// GitLab CI_JOB_TOKEN
+    var jobToken: String? { get }
+
+    /// GitLab Access Token
+    var privateToken: String? { get }
+
     /// Keychain the items should be imported to
     var keychainName: String { get }
 
@@ -98,11 +116,23 @@ public protocol MatchfileProtocol: class {
     /// Renew the provisioning profiles every time you run match
     var force: Bool { get }
 
-    /// Renew the provisioning profiles if the device count on the developer portal has changed. Ignored for profile type 'appstore'
+    /// Renew the provisioning profiles if the device count on the developer portal has changed. Ignored for profile types 'appstore' and 'developer_id'
     var forceForNewDevices: Bool { get }
+
+    /// Include Apple Silicon Mac devices in provisioning profiles for iOS/iPadOS apps
+    var includeMacInProfiles: Bool { get }
+
+    /// Include all matching certificates in the provisioning profile. Works only for the 'development' provisioning profile type
+    var includeAllCertificates: Bool { get }
+
+    /// Renew the provisioning profiles if the certificate count on the developer portal has changed. Works only for the 'development' provisioning profile type. Requires 'include_all_certificates' option to be 'true'
+    var forceForNewCertificates: Bool { get }
 
     /// Disables confirmation prompts during nuke, answering them with yes
     var skipConfirmation: Bool { get }
+
+    /// Remove certs from repository during nuke without revoking them on the developer portal
+    var safeRemoveCerts: Bool { get }
 
     /// Skip generation of a README.md for the created git repository
     var skipDocs: Bool { get }
@@ -160,16 +190,26 @@ public extension MatchfileProtocol {
     var googleCloudBucketName: String? { return nil }
     var googleCloudKeysFile: String? { return nil }
     var googleCloudProjectId: String? { return nil }
+    var skipGoogleCloudAccountConfirmation: Bool { return false }
     var s3Region: String? { return nil }
     var s3AccessKey: String? { return nil }
     var s3SecretAccessKey: String? { return nil }
     var s3Bucket: String? { return nil }
     var s3ObjectPrefix: String? { return nil }
+    var s3SkipEncryption: Bool { return false }
+    var gitlabProject: String? { return nil }
+    var gitlabHost: String { return "https://gitlab.com" }
+    var jobToken: String? { return nil }
+    var privateToken: String? { return nil }
     var keychainName: String { return "login.keychain" }
     var keychainPassword: String? { return nil }
     var force: Bool { return false }
     var forceForNewDevices: Bool { return false }
+    var includeMacInProfiles: Bool { return false }
+    var includeAllCertificates: Bool { return false }
+    var forceForNewCertificates: Bool { return false }
     var skipConfirmation: Bool { return false }
+    var safeRemoveCerts: Bool { return false }
     var skipDocs: Bool { return false }
     var platform: String { return "ios" }
     var deriveCatalystAppIdentifier: Bool { return false }
@@ -184,4 +224,4 @@ public extension MatchfileProtocol {
 
 // Please don't remove the lines below
 // They are used to detect outdated files
-// FastlaneRunnerAPIVersion [0.9.67]
+// FastlaneRunnerAPIVersion [0.9.117]

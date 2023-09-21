@@ -84,6 +84,10 @@ module Snapshot
       {
         # snapshot in Xcode 9 saves screenshots with the SIMULATOR_DEVICE_NAME
         # which includes spaces
+        'iPhone 13 Pro Max' => "iPhone 13 Pro Max",
+        'iPhone 13 Pro' => "iPhone 13 Pro",
+        'iPhone 13 mini' => "iPhone 13 mini",
+        'iPhone 13' => "iPhone 13",
         'iPhone 12 Pro Max' => "iPhone 12 Pro Max",
         'iPhone 12 Pro' => "iPhone 12 Pro",
         'iPhone 12 mini' => "iPhone 12 mini",
@@ -113,6 +117,10 @@ module Snapshot
         'iPad Air' => 'iPad Air',
         'iPad (5th generation)' => 'iPad (5th generation)',
         'iPad (7th generation)' => 'iPad (7th generation)',
+        'iPad mini 2' => 'iPad mini 2',
+        'iPad mini 3' => 'iPad mini 3',
+        'iPad mini 4' => 'iPad mini 4',
+        'iPad mini (6th generation)' => 'iPad mini (6th generation)',
         'iPad Pro (9.7-inch)' => 'iPad Pro (9.7-inch)',
         'iPad Pro (9.7 inch)' => 'iPad Pro (9.7-inch)', # iOS 10.3.1 simulator
         'iPad Pro (10.5-inch)' => 'iPad Pro (10.5-inch)',
@@ -124,11 +132,14 @@ module Snapshot
         'iPad Pro (12.9-inch)' => 'iPad Pro (12.9-inch)',
         'iPad Pro (12.9 inch)' => 'iPad Pro (12.9-inch)', # iOS 10.3.1 simulator
         'iPad Pro' => 'iPad Pro (12.9-inch)', # iOS 9.3 simulator
+        'iPod touch (7th generation)' => 'iPod touch (7th generation)',
         'Apple TV 1080p' => 'Apple TV',
         'Apple TV 4K (at 1080p)' => 'Apple TV 4K (at 1080p)',
         'Apple TV 4K' => 'Apple TV 4K',
         'Apple TV' => 'Apple TV',
-        'Mac' => 'Mac'
+        'Mac' => 'Mac',
+        'Apple Watch Series 5 - 44mm' => 'Apple Watch Series 5 - 44mm',
+        'Apple Watch Series 6 - 44mm' => 'Apple Watch Series 6 - 44mm'
       }
     end
 

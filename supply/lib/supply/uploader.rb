@@ -13,6 +13,8 @@ module Supply
       apk_version_codes.concat(upload_bundles) unless Supply.config[:skip_upload_aab]
       upload_mapping(apk_version_codes)
 
+      track_to_update = Supply.config[:track]
+
       apk_version_codes.concat(Supply.config[:version_codes_to_retain]) if Supply.config[:version_codes_to_retain]
 
       if !apk_version_codes.empty?
@@ -23,13 +25,14 @@ module Supply
       else
         # Only promote or rollout if we don't have version codes
         if Supply.config[:track_promote_to]
+          track_to_update = Supply.config[:track_promote_to]
           promote_track
         elsif !Supply.config[:rollout].nil? && Supply.config[:track].to_s != ""
           update_rollout
         end
       end
 
-      perform_upload_meta(apk_version_codes)
+      perform_upload_meta(apk_version_codes, track_to_update)
 
       if Supply.config[:validate_only]
         UI.message("Validating all changes with Google Play...")
@@ -70,7 +73,7 @@ module Supply
       end
     end
 
-    def perform_upload_meta(version_codes)
+    def perform_upload_meta(version_codes, track_name)
       if (!Supply.config[:skip_upload_metadata] || !Supply.config[:skip_upload_images] || !Supply.config[:skip_upload_changelogs] || !Supply.config[:skip_upload_screenshots]) && metadata_path
         # Use version code from config if version codes is empty and no nil or empty string
         version_codes = [Supply.config[:version_code]] if version_codes.empty?
@@ -81,7 +84,7 @@ module Supply
         version_codes.each do |version_code|
           UI.user_error!("Could not find folder #{metadata_path}") unless File.directory?(metadata_path)
 
-          track, release = fetch_track_and_release!(Supply.config[:track], version_code)
+          track, release = fetch_track_and_release!(track_name, version_code)
           UI.user_error!("Unable to find the requested track - '#{Supply.config[:track]}'") unless track
           UI.user_error!("Could not find release for version code '#{version_code}' to update changelog") unless release
 
@@ -98,7 +101,7 @@ module Supply
             release_notes << upload_changelog(language, version_code) unless Supply.config[:skip_upload_changelogs]
           end
 
-          upload_changelogs(release_notes, release, track) unless release_notes.empty?
+          upload_changelogs(release_notes, release, track, track_name) unless release_notes.empty?
         end
       end
     end
@@ -144,7 +147,7 @@ module Supply
     end
 
     def verify_config!
-      unless metadata_path || Supply.config[:apk] || Supply.config[:apk_paths] || Supply.config[:aab] || Supply.config[:aab_paths] || (Supply.config[:track] && Supply.config[:track_promote_to])
+      unless metadata_path || Supply.config[:apk] || Supply.config[:apk_paths] || Supply.config[:aab] || Supply.config[:aab_paths] || (Supply.config[:track] && Supply.config[:track_promote_to]) || (Supply.config[:track] && Supply.config[:rollout])
         UI.user_error!("No local metadata, apks, aab, or track to promote were found, make sure to run `fastlane supply init` to setup supply")
       end
 
@@ -159,6 +162,10 @@ module Supply
 
       if Supply.config[:release_status] == Supply::ReleaseStatus::DRAFT && Supply.config[:rollout]
         UI.user_error!(%(Cannot specify rollout percentage when the release status is set to 'draft'))
+      end
+
+      if Supply.config[:track_promote_release_status] == Supply::ReleaseStatus::DRAFT && Supply.config[:rollout]
+        UI.user_error!(%(Cannot specify rollout percentage when the track promote release status is set to 'draft'))
       end
 
       unless Supply.config[:version_codes_to_retain].nil?
@@ -179,7 +186,7 @@ module Supply
         end
       else
         releases = releases.select do |release|
-          release.status == Supply::ReleaseStatus::COMPLETED
+          release.status == Supply.config[:release_status]
         end
       end
 
@@ -197,7 +204,7 @@ module Supply
         release.status = Supply::ReleaseStatus::IN_PROGRESS
         release.user_fraction = rollout
       else
-        release.status = Supply::ReleaseStatus::COMPLETED
+        release.status = Supply.config[:track_promote_release_status]
         release.user_fraction = nil
       end
 
@@ -239,9 +246,9 @@ module Supply
       )
     end
 
-    def upload_changelogs(release_notes, release, track)
+    def upload_changelogs(release_notes, release, track, track_name)
       release.release_notes = release_notes
-      client.upload_changelogs(track, Supply.config[:track])
+      client.upload_changelogs(track, track_name)
     end
 
     def upload_metadata(language, listing)
@@ -263,7 +270,17 @@ module Supply
         path = Dir.glob(search, File::FNM_CASEFOLD).last
         next unless path
 
-        UI.message("Uploading image file #{path}...")
+        if Supply.config[:sync_image_upload]
+          UI.message("🔍 Checking #{image_type} checksum...")
+          existing_images = client.fetch_images(image_type: image_type, language: language)
+          sha256 = Digest::SHA256.file(path).hexdigest
+          if existing_images.map(&:sha256).include?(sha256)
+            UI.message("🟰 Skipping upload of screenshot #{path} as remote sha256 matches.")
+            next
+          end
+        end
+
+        UI.message("⬆️ Uploading image file #{path}...")
         client.upload_image(image_path: File.expand_path(path),
                             image_type: image_type,
                               language: language)
@@ -273,13 +290,30 @@ module Supply
     def upload_screenshots(language)
       Supply::SCREENSHOT_TYPES.each do |screenshot_type|
         search = File.join(metadata_path, language, Supply::IMAGES_FOLDER_NAME, screenshot_type, "*.#{IMAGE_FILE_EXTENSIONS}")
-        paths = Dir.glob(search, File::FNM_CASEFOLD)
+        paths = Dir.glob(search, File::FNM_CASEFOLD).sort
         next unless paths.count > 0
 
-        client.clear_screenshots(image_type: screenshot_type, language: language)
+        if Supply.config[:sync_image_upload]
+          UI.message("🔍 Checking #{screenshot_type} checksums...")
+          existing_images = client.fetch_images(image_type: screenshot_type, language: language)
+          # Don't keep images that either don't exist locally, or that are out of order compared to the `paths` to upload
+          first_path_checksum = Digest::SHA256.file(paths.first).hexdigest
+          existing_images.each do |image|
+            if image.sha256 == first_path_checksum
+              UI.message("🟰 Skipping upload of screenshot #{paths.first} as remote sha256 matches.")
+              paths.shift # Remove first path from the list of paths to be uploaded
+              first_path_checksum = paths.empty? ? nil : Digest::SHA256.file(paths.first).hexdigest
+            else
+              UI.message("🚮 Deleting #{language} screenshot id ##{image.id} as it does not exist locally or is out of order...")
+              client.clear_screenshot(image_type: screenshot_type, language: language, image_id: image.id)
+            end
+          end
+        else
+          client.clear_screenshots(image_type: screenshot_type, language: language)
+        end
 
-        paths.sort.each do |path|
-          UI.message("Uploading screenshot #{path}...")
+        paths.each do |path|
+          UI.message("⬆️  Uploading screenshot #{path}...")
           client.upload_image(image_path: File.expand_path(path),
                               image_type: screenshot_type,
                                 language: language)
@@ -302,7 +336,7 @@ module Supply
 
     def upload_mapping(apk_version_codes)
       mapping_paths = [Supply.config[:mapping]] unless (mapping_paths = Supply.config[:mapping_paths])
-      mapping_paths.zip(apk_version_codes).each do |mapping_path, version_code|
+      mapping_paths.product(apk_version_codes).each do |mapping_path, version_code|
         if mapping_path
           UI.message("Preparing mapping at path '#{mapping_path}', version code #{version_code} for upload...")
           client.upload_mapping(mapping_path, version_code)

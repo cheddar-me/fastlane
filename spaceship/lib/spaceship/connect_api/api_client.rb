@@ -156,9 +156,13 @@ module Spaceship
         end
       end
 
-      def with_asc_retry(tries = 5, &_block)
-        tries = 1 if Object.const_defined?("SpecHelper")
+      class TooManyRequestsError < StandardError
+        def initialize(msg)
+          super
+        end
+      end
 
+      def with_asc_retry(tries = 5, backoff = 1, &_block)
         response = yield
 
         status = response.status if response
@@ -168,11 +172,22 @@ module Spaceship
           raise TimeoutRetryError, msg
         end
 
+        if status == 429
+          raise TooManyRequestsError, "Too many requests, backing off #{backoff} seconds"
+        end
+
         return response
       rescue UnauthorizedAccessError => error
-        # Catch unathorized access and re-raising
-        # There is no need to try again
-        raise error
+        tries -= 1
+        puts(error) if Spaceship::Globals.verbose?
+        if tries.zero?
+          raise error
+        else
+          msg = "Token has expired or has been revoked! Trying to refresh..."
+          puts(msg) if Spaceship::Globals.verbose?
+          @token.refresh!
+          retry
+        end
       rescue TimeoutRetryError => error
         tries -= 1
         puts(error) if Spaceship::Globals.verbose?
@@ -181,6 +196,14 @@ module Spaceship
         else
           retry
         end
+      rescue TooManyRequestsError => error
+        if backoff > 3600
+          raise TooManyRequestsError, "Too many requests, giving up after backing off for > 3600 seconds."
+        end
+        puts(error) if Spaceship::Globals.verbose?
+        Kernel.sleep(backoff)
+        backoff *= 2
+        retry
       end
 
       def handle_response(response)
@@ -207,16 +230,33 @@ module Spaceship
 
       # Overridden from Spaceship::Client
       def handle_error(response)
+        body = response.body.empty? ? {} : response.body
+
+        # Setting body nil if invalid JSON which can happen if 502
+        begin
+          body = JSON.parse(body) if body.kind_of?(String)
+        rescue
+          nil
+        end
+
         case response.status.to_i
         when 401
-          raise UnauthorizedAccessError, format_errors(response) if response && (response.body || {})['errors']
+          raise UnauthorizedAccessError, format_errors(response)
         when 403
-          error = (response.body['errors'] || []).first || {}
+          error = (body['errors'] || []).first || {}
           error_code = error['code']
           if error_code == "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED"
-            raise ProgramLicenseAgreementUpdated, format_errors(response) if response && (response.body || {})['errors']
+            raise ProgramLicenseAgreementUpdated, format_errors(response)
           else
-            raise AccessForbiddenError, format_errors(response) if response && (response.body || {})['errors']
+            raise AccessForbiddenError, format_errors(response)
+          end
+        when 502
+          # Issue - https://github.com/fastlane/fastlane/issues/19264
+          # This 502 with "Could not process this request" body sometimes
+          # work and sometimes doesn't
+          # Usually retrying once or twice will solve the issue
+          if body && body.include?("Could not process this request")
+            raise BadGatewayError, "Could not process this request"
           end
         end
       end
@@ -280,7 +320,23 @@ module Spaceship
         #   ]
         # }
 
-        return response.body['errors'].map do |error|
+        # Membership expired
+        # {
+        #   "errors" : [
+        #     {
+        #       "id" : "UUID",
+        #       "status" : "403",
+        #       "code" : "FORBIDDEN_ERROR",
+        #       "title" : "This request is forbidden for security reasons",
+        #       "detail" : "Team ID: 'ID' is not associated with an active membership. To check your teams membership status, sign in your account on the developer website. https://developer.apple.com/account/"
+        #     }
+        #   ]
+        # }
+
+        body = response.body.empty? ? {} : response.body
+        body = JSON.parse(body) if body.kind_of?(String)
+
+        formatted_errors = (body['errors'] || []).map do |error|
           messages = [[error['title'], error['detail'], error.dig("source", "pointer")].compact.join(" - ")]
 
           meta = error["meta"] || {}
@@ -290,6 +346,12 @@ module Spaceship
             [[associated_error["title"], associated_error["detail"]].compact.join(" - ")]
           end
         end.flatten.join("\n")
+
+        if formatted_errors.empty?
+          formatted_errors << "Unknown error"
+        end
+
+        return formatted_errors
       end
 
       private

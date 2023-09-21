@@ -88,7 +88,9 @@ module Match
         team_id: params[:team_id],
         team_name: params[:team_name],
         template_name: params[:template_name],
-        fail_on_name_taken: params[:fail_on_name_taken]
+        fail_on_name_taken: params[:fail_on_name_taken],
+        include_all_certificates: params[:include_all_certificates],
+        include_mac_in_profiles: params[:include_mac_in_profiles],
       }
 
       values[:platform] = params[:platform]

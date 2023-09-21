@@ -21,6 +21,13 @@ describe Fastlane do
       end
 
       context "Target Settings" do
+        it "gets the correct version number for AggTarget without INFO_PLIST build option", requires_xcodeproj: true do
+          result = Fastlane::FastFile.new.parse("lane :test do
+            get_version_number(xcodeproj: '#{File.join(xcodeproj_dir, xcodeproj_filename)}', target: 'AggTarget')
+          end").runner.execute(:test)
+          expect(result).to eq("7.6.6")
+        end
+
         it "gets the correct version number for 'TargetVariableParentheses'", requires_xcodeproj: true do
           result = Fastlane::FastFile.new.parse("lane :test do
             get_version_number(xcodeproj: '#{xcodeproj_dir}', target: 'TargetVariableParentheses')
@@ -53,7 +60,7 @@ describe Fastlane do
       end
 
       context "xcconfig defined version" do
-        it "gets the correct version numer for 'TargetConfigVersion'", requires_xcodeproj: true do
+        it "gets the correct version number for 'TargetConfigVersion'", requires_xcodeproj: true do
           result = Fastlane::FastFile.new.parse("lane :test do
             get_version_number(xcodeproj: '#{xcodeproj_dir}', target: 'TargetConfigVersion')
           end").runner.execute(:test)

@@ -20,7 +20,7 @@ module Pilot
                                      end),
         FastlaneCore::ConfigItem.new(key: :api_key,
                                      env_names: ["PILOT_API_KEY", "APP_STORE_CONNECT_API_KEY"],
-                                     description: "Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#use-return-value-and-pass-in-as-an-option)",
+                                     description: "Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-hash-option)",
                                      type: Hash,
                                      optional: true,
                                      sensitive: true,
@@ -48,7 +48,6 @@ module Pilot
                                      env_name: "PILOT_PLATFORM",
                                      description: "The platform to use (optional)",
                                      optional: true,
-                                     default_value: 'ios',
                                      verify_block: proc do |value|
                                        UI.user_error!("The platform can only be ios, appletvos, or osx") unless ['ios', 'appletvos', 'osx'].include?(value)
                                      end),
@@ -82,6 +81,26 @@ module Pilot
                                        value = File.expand_path(value)
                                        UI.user_error!("Could not find ipa file at path '#{value}'") unless File.exist?(value)
                                        UI.user_error!("'#{value}' doesn't seem to be an ipa file") unless value.end_with?(".ipa")
+                                     end,
+                                     conflicting_options: [:pkg],
+                                     conflict_block: proc do |value|
+                                       UI.user_error!("You can't use 'ipa' and '#{value.key}' options in one run.")
+                                     end),
+        FastlaneCore::ConfigItem.new(key: :pkg,
+                                     short_option: "-P",
+                                     optional: true,
+                                     env_name: "PILOT_PKG",
+                                     description: "Path to your pkg file",
+                                     code_gen_sensitive: true,
+                                     default_value: Dir["*.pkg"].sort_by { |x| File.mtime(x) }.last,
+                                     default_value_dynamic: true,
+                                     verify_block: proc do |value|
+                                       UI.user_error!("Could not find pkg file at path '#{File.expand_path(value)}'") unless File.exist?(value)
+                                       UI.user_error!("'#{value}' doesn't seem to be a pkg file") unless value.end_with?(".pkg")
+                                     end,
+                                     conflicting_options: [:ipa],
+                                     conflict_block: proc do |value|
+                                       UI.user_error!("You can't use 'pkg' and '#{value.key}' options in one run.")
                                      end),
 
         # app review info
@@ -178,7 +197,7 @@ module Pilot
         FastlaneCore::ConfigItem.new(key: :distribute_external,
                                      is_string: false,
                                      env_name: "PILOT_DISTRIBUTE_EXTERNAL",
-                                     description: "Should the build be distributed to external testers?",
+                                     description: "Should the build be distributed to external testers? If set to true, use of `groups` option is required",
                                      default_value: false),
         FastlaneCore::ConfigItem.new(key: :notify_external_testers,
                                     is_string: false,
@@ -227,7 +246,7 @@ module Pilot
         FastlaneCore::ConfigItem.new(key: :groups,
                                      short_option: "-g",
                                      env_name: "PILOT_GROUPS",
-                                     description: "Associate tester to one group or more by group name / group id. E.g. `-g \"Team 1\",\"Team 2\"`",
+                                     description: "Associate tester to one group or more by group name / group id. E.g. `-g \"Team 1\",\"Team 2\"` This is required when `distribute_external` option is set to true or when we want to add a tester to one or more external testing groups ",
                                      optional: true,
                                      type: Array,
                                      verify_block: proc do |value|
@@ -305,7 +324,12 @@ module Pilot
                                      env_name: "PILOT_REJECT_PREVIOUS_BUILD",
                                      description: "Expire previous if it's 'waiting for review'",
                                      is_string: false,
-                                     default_value: false)
+                                     default_value: false),
+        FastlaneCore::ConfigItem.new(key: :submit_beta_review,
+                                     env_name: "PILOT_DISTRIBUTE_EXTERNAL",
+                                     description: "Send the build for a beta review",
+                                     type: Boolean,
+                                     default_value: true)
       ]
     end
   end

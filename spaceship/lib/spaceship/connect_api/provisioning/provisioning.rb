@@ -54,6 +54,11 @@ module Spaceship
           provisioning_request_client.get("bundleIds/#{bundle_id_id}/bundleIdCapabilities", params)
         end
 
+        def get_available_bundle_id_capabilities(bundle_id_id:)
+          params = provisioning_request_client.build_params(filter: { bundleId: bundle_id_id })
+          provisioning_request_client.get("capabilities", params)
+        end
+
         def post_bundle_id_capability(bundle_id_id:, capability_type:, settings: [])
           body = {
             data: {
@@ -68,12 +73,52 @@ module Spaceship
                     type: "bundleIds",
                     id: bundle_id_id
                   }
+                },
+                capability: {
+                  data: {
+                    type: "capabilities",
+                    id: capability_type
+                  }
+                }
+              }
+            }
+          }
+          provisioning_request_client.post("bundleIdCapabilities", body)
+        end
+
+        def patch_bundle_id_capability(bundle_id_id:, seed_id:, enabled: false, capability_type:, settings: [])
+          body = {
+            data: {
+              type: "bundleIds",
+              id: bundle_id_id,
+              attributes: {
+                teamId: seed_id
+              },
+              relationships: {
+                bundleIdCapabilities: {
+                  data: [
+                    {
+                      type: "bundleIdCapabilities",
+                      attributes: {
+                          enabled: enabled,
+                          settings: settings
+                      },
+                      relationships: {
+                        capability: {
+                          data: {
+                              type: "capabilities",
+                              id: capability_type
+                            }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
           }
 
-          provisioning_request_client.post("bundleIdCapabilities", body)
+          provisioning_request_client.patch("bundleIds/#{bundle_id_id}", body)
         end
 
         def delete_bundle_id_capability(bundle_id_capability_id:)
@@ -143,6 +188,25 @@ module Spaceship
           }
 
           provisioning_request_client.post("devices", body)
+        end
+
+        def patch_device(id: nil, status: nil, new_name: nil)
+          raise "Device id is nil" if id.nil?
+
+          attributes = {
+            name: new_name,
+            status: status
+          }
+
+          body = {
+            data: {
+              attributes: attributes,
+              id: id,
+              type: "devices"
+            }
+          }
+
+          provisioning_request_client.patch("devices/#{id}", body)
         end
 
         #

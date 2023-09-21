@@ -53,7 +53,7 @@ task(:generate_team_table) do
     content << "<tr>" if counter % number_of_rows == 0
     content << "<td id='#{github_user_id}'>"
     content << "<a href='#{github_profile_url}'>"
-    content << "<img src='#{github_profile_url}.png?size=140'>"
+    content << "<img src='#{github_profile_url}.png' width='140px;'>"
     content << "</a>"
     if user_content['twitter']
       content << "<h4 align='center'><a href='https://twitter.com/#{user_content['twitter']}'>#{github_user_name}</a></h4>"
@@ -87,18 +87,6 @@ task(:update_gem_spec_authors) do
   names = names.join("\",\n                        \"")
   gemspec.gsub!(/spec.authors\s+\=\s.*?\]/m, "spec.authors       = [\"#{names}\"]")
   File.write("fastlane.gemspec", gemspec)
-end
-
-#####################################################
-# @!group Helper Methods
-#####################################################
-
-def box(str)
-  l = str.length + 4
-  puts('')
-  puts('=' * l)
-  puts('| ' + str + ' |')
-  puts('=' * l)
 end
 
 task(default: :test_all)

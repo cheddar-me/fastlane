@@ -34,11 +34,13 @@ describe Sigh do
         },
         "macos" => {
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_STORE => { in_house: false, options: { platform: "macos" } },
+          Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_INHOUSE => { in_house: true, options: { platform: "macos" } },
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DEVELOPMENT => { in_house: false, options: { platform: "macos", development: true } },
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DIRECT => { in_house: false, options: { platform: "macos", developer_id: true } }
         },
         "catalyst" => {
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_STORE => { in_house: false, options: { platform: "catalyst" } },
+          Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_INHOUSE => { in_house: true, options: { platform: "catalyst" } },
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DEVELOPMENT => { in_house: false, options: { platform: "catalyst", development: true } },
           Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DIRECT => { in_house: false, options: { platform: "catalyst", developer_id: true } }
         }
@@ -72,10 +74,12 @@ describe Sigh do
           expect(profiles.size).to eq(1)
         end
 
-        it "without skip verification" do
+        it "on mac without skip verification" do
+          expect(FastlaneCore::Helper).to receive(:mac?).and_return(true)
+
           sigh_stub_spaceship_connect(inhouse: false, all_app_identifiers: ["com.krausefx.app"], app_identifier_and_profile_names: { "com.krausefx.app" => ["No dupe here"] })
 
-          options = { app_identifier: "com.krausefx.app", skip_certificate_verification: false }
+          options = { app_identifier: "com.krausefx.app" }
           Sigh.config = FastlaneCore::Configuration.create(Sigh::Options.available_options, options)
 
           expect(FastlaneCore::CertChecker).to receive(:installed?).with(anything).and_return(true)
@@ -83,10 +87,26 @@ describe Sigh do
           profiles = fake_runner.fetch_profiles
           expect(profiles.size).to eq(1)
         end
+
+        it "on non-mac without skip verification" do
+          expect(FastlaneCore::Helper).to receive(:mac?).and_return(false)
+
+          sigh_stub_spaceship_connect(inhouse: false, all_app_identifiers: ["com.krausefx.app"], app_identifier_and_profile_names: { "com.krausefx.app" => ["No dupe here"] })
+
+          options = { app_identifier: "com.krausefx.app" }
+          Sigh.config = FastlaneCore::Configuration.create(Sigh::Options.available_options, options)
+
+          expect(FastlaneCore::CertChecker).not_to receive(:installed?).with(anything)
+
+          profiles = fake_runner.fetch_profiles
+          expect(profiles.size).to eq(1)
+        end
       end
 
       context "unsuccessfully" do
-        it "without skip verification" do
+        it "on mac without skip verification" do
+          expect(FastlaneCore::Helper).to receive(:mac?).and_return(true)
+
           sigh_stub_spaceship_connect(inhouse: false, all_app_identifiers: ["com.krausefx.app"], app_identifier_and_profile_names: { "com.krausefx.app" => ["No dupe here"] })
 
           options = { app_identifier: "com.krausefx.app", skip_certificate_verification: false }
@@ -131,6 +151,16 @@ describe Sigh do
         expect(devices.size).to eq(1)
       end
 
+      it "devices for development with apple silicon" do
+        options = { development: true, include_mac_in_profiles: true }
+        Sigh.config = FastlaneCore::Configuration.create(Sigh::Options.available_options, options)
+
+        expect(Spaceship::ConnectAPI::Device).to receive(:all).and_return(["ios_device", "as_device"])
+
+        devices = fake_runner.devices_to_use
+        expect(devices.size).to eq(2)
+      end
+
       it "devices for adhoc" do
         options = { adhoc: true }
         Sigh.config = FastlaneCore::Configuration.create(Sigh::Options.available_options, options)
@@ -151,6 +181,15 @@ describe Sigh do
         certificates_to_use = fake_runner.certificates_to_use
         expect(certificates_to_use.size).to eq(1)
       end
+
+      it "list certificates found when there're multiple certificates and in development" do
+        options = { include_all_certificates: true, development: true }
+        Sigh.config = FastlaneCore::Configuration.create(Sigh::Options.available_options, options)
+        sigh_stub_spaceship_connect
+
+        certificates_to_use = fake_runner.certificates_to_use
+        expect(certificates_to_use.size).to eq(2)
+      end
     end
 
     describe "#profile_type_pretty_type" do
@@ -166,9 +205,11 @@ describe Sigh do
         Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_STORE => "AppStore",
         Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DEVELOPMENT => "Development",
         Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DIRECT => "Direct",
+        Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_INHOUSE => "InHouse",
         Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_STORE => "AppStore",
         Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DEVELOPMENT => "Development",
-        Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DIRECT => "Direct"
+        Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DIRECT => "Direct",
+        Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_INHOUSE => "InHouse"
       }
 
       # Creates test for each profile type

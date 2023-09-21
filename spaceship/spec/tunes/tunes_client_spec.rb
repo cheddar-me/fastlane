@@ -22,6 +22,11 @@ describe Spaceship::TunesClient do
     let(:username) { 'spaceship@krausefx.com' }
     let(:password) { 'so_secret' }
 
+    before(:each) do
+      # Don't need to test hashcash here
+      allow_any_instance_of(Spaceship::Client).to receive(:fetch_hashcash)
+    end
+
     it 'has authType is sa' do
       response = double
       allow(response).to receive(:status).and_return(412)
@@ -31,7 +36,7 @@ describe Spaceship::TunesClient do
       expect do
         Spaceship::Tunes.login(username, password)
       end.to raise_exception(Spaceship::AppleIDAndPrivacyAcknowledgementNeeded, "Need to acknowledge to Apple's Apple ID and Privacy statement. Please manually log into https://appleid.apple.com (or https://appstoreconnect.apple.com) to acknowledge the statement. " \
-                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automaticaly bypass 2FA upgrade if possible.")
+                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automatically bypass 2FA upgrade if possible.")
     end
 
     it 'has authType of hsa' do
@@ -43,7 +48,7 @@ describe Spaceship::TunesClient do
       expect do
         Spaceship::Tunes.login(username, password)
       end.to raise_exception(Spaceship::AppleIDAndPrivacyAcknowledgementNeeded, "Need to acknowledge to Apple's Apple ID and Privacy statement. Please manually log into https://appleid.apple.com (or https://appstoreconnect.apple.com) to acknowledge the statement. " \
-                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automaticaly bypass 2FA upgrade if possible.")
+                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automatically bypass 2FA upgrade if possible.")
     end
 
     it 'has authType of non-sa' do
@@ -55,7 +60,7 @@ describe Spaceship::TunesClient do
       expect do
         Spaceship::Tunes.login(username, password)
       end.to raise_exception(Spaceship::AppleIDAndPrivacyAcknowledgementNeeded, "Need to acknowledge to Apple's Apple ID and Privacy statement. Please manually log into https://appleid.apple.com (or https://appstoreconnect.apple.com) to acknowledge the statement. " \
-                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automaticaly bypass 2FA upgrade if possible.")
+                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automatically bypass 2FA upgrade if possible.")
     end
 
     it 'has authType of hsa2' do
@@ -67,7 +72,7 @@ describe Spaceship::TunesClient do
       expect do
         Spaceship::Tunes.login(username, password)
       end.to raise_exception(Spaceship::AppleIDAndPrivacyAcknowledgementNeeded, "Need to acknowledge to Apple's Apple ID and Privacy statement. Please manually log into https://appleid.apple.com (or https://appstoreconnect.apple.com) to acknowledge the statement. " \
-                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automaticaly bypass 2FA upgrade if possible.")
+                             "Your account might also be asked to upgrade to 2FA. Set SPACESHIP_SKIP_2FA_UPGRADE=1 for fastlane to automatically bypass 2FA upgrade if possible.")
     end
   end
 
@@ -112,11 +117,11 @@ describe Spaceship::TunesClient do
     describe "associated to multiple teams" do
       let(:user_details_data) do
         {
-          'associatedAccounts' => [
-            { 'contentProvider' => { 'name' => 'Tom', 'contentProviderId' => 1234 } },
-            { 'contentProvider' => { 'name' => 'Harry', 'contentProviderId' => 5678 } }
+          'availableProviders' => [
+            { 'name' => 'Tom', 'providerId' => 1234, 'contentProviderPublicId' => '1111-2222-3333-4444' },
+            { 'name' => 'Harry', 'providerId' => 5678, 'contentProviderPublicId' => '2222-3333-4444-5555' }
           ],
-          'sessionToken' => { 'contentProviderId' => 1234 }
+          'provider' => { 'providerId' => 1234 }
         }
       end
 

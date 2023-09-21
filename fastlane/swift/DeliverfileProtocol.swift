@@ -1,11 +1,11 @@
 // DeliverfileProtocol.swift
-// Copyright (c) 2021 FastlaneTools
+// Copyright (c) 2023 FastlaneTools
 
-public protocol DeliverfileProtocol: class {
+public protocol DeliverfileProtocol: AnyObject {
     /// Path to your App Store Connect API Key JSON file (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-json-file)
     var apiKeyPath: String? { get }
 
-    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#use-return-value-and-pass-in-as-an-option)
+    /// Your App Store Connect API Key information (https://docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-hash-option)
     var apiKey: [String: Any]? { get }
 
     /// Your Apple ID Username
@@ -59,8 +59,14 @@ public protocol DeliverfileProtocol: class {
     /// Clear all previously uploaded screenshots before uploading the new ones
     var overwriteScreenshots: Bool { get }
 
+    /// Sync screenshots with local ones. This is currently beta option so set true to 'FASTLANE_ENABLE_BETA_DELIVER_SYNC_SCREENSHOTS' environment variable as well
+    var syncScreenshots: Bool { get }
+
     /// Submit the new version for Review after uploading everything
     var submitForReview: Bool { get }
+
+    /// Verifies archive with App Store Connect without uploading
+    var verifyOnly: Bool { get }
 
     /// Rejects the previously submitted build if it's in a state where it's possible
     var rejectIfPossible: Bool { get }
@@ -209,7 +215,9 @@ public extension DeliverfileProtocol {
     var skipAppVersionUpdate: Bool { return false }
     var force: Bool { return false }
     var overwriteScreenshots: Bool { return false }
+    var syncScreenshots: Bool { return false }
     var submitForReview: Bool { return false }
+    var verifyOnly: Bool { return false }
     var rejectIfPossible: Bool { return false }
     var automaticRelease: Bool? { return nil }
     var autoReleaseDate: Int? { return nil }
@@ -256,4 +264,4 @@ public extension DeliverfileProtocol {
 
 // Please don't remove the lines below
 // They are used to detect outdated files
-// FastlaneRunnerAPIVersion [0.9.70]
+// FastlaneRunnerAPIVersion [0.9.120]

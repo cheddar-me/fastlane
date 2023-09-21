@@ -1,3 +1,5 @@
+# rubocop:disable Metrics/ClassLength
+
 require 'fastlane_core/configuration/config_item'
 require 'credentials_manager/appfile_config'
 
@@ -208,6 +210,11 @@ module Supply
                                      description: "Whether to skip uploading SCREENSHOTS",
                                      type: Boolean,
                                      default_value: false),
+        FastlaneCore::ConfigItem.new(key: :sync_image_upload,
+                                     env_name: "SUPPLY_SYNC_IMAGE_UPLOAD",
+                                     description: "Whether to use sha256 comparison to skip upload of images and screenshots that are already in Play Store",
+                                     type: Boolean,
+                                     default_value: false),
         FastlaneCore::ConfigItem.new(key: :track_promote_to,
                                      env_name: "SUPPLY_TRACK_PROMOTE_TO",
                                      optional: true,
@@ -215,6 +222,14 @@ module Supply
                                      verify_block: proc do |value|
                                        UI.user_error!("'rollout' is no longer a valid track name - please use 'production' instead") if value.casecmp('rollout').zero?
                                      end),
+        FastlaneCore::ConfigItem.new(key: :track_promote_release_status,
+                                     env_name: "SUPPLY_TRACK_PROMOTE_RELEASE_STATUS",
+                                     optional: true,
+                                     description: "Promoted track release status (used when promoting a track) - valid values are #{Supply::ReleaseStatus::ALL.join(', ')}",
+                                     default_value: Supply::ReleaseStatus::COMPLETED,
+                                     verify_block: proc do |value|
+                                                     UI.user_error!("Value must be one of '#{Supply::RELEASE_STATUS}'") unless Supply::ReleaseStatus::ALL.include?(value)
+                                                   end),
         FastlaneCore::ConfigItem.new(key: :validate_only,
                                      env_name: "SUPPLY_VALIDATE_ONLY",
                                      optional: true,
@@ -281,6 +296,16 @@ module Supply
                                          UI.user_error!("Version code '#{version_code}' is not an integer") if version_code == 0
                                        end
                                      end),
+        FastlaneCore::ConfigItem.new(key: :changes_not_sent_for_review,
+                                     env_name: "SUPPLY_CHANGES_NOT_SENT_FOR_REVIEW",
+                                     description: "Indicates that the changes in this edit will not be reviewed until they are explicitly sent for review from the Google Play Console UI",
+                                     type: Boolean,
+                                     default_value: false),
+        FastlaneCore::ConfigItem.new(key: :rescue_changes_not_sent_for_review,
+                                     env_name: "SUPPLY_RESCUE_CHANGES_NOT_SENT_FOR_REVIEW",
+                                     description: "Catches changes_not_sent_for_review errors when an edit is committed and retries with the configuration that the error message recommended",
+                                     type: Boolean,
+                                     default_value: true),
         FastlaneCore::ConfigItem.new(key: :in_app_update_priority,
                                      env_name: "SUPPLY_IN_APP_UPDATE_PRIORITY",
                                      optional: true,

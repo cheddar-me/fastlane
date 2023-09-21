@@ -82,10 +82,12 @@ module Sigh
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::TVOS_APP_DEVELOPMENT if Sigh.config[:development]
       when "macos"
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_STORE
+        @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_INHOUSE if Spaceship::ConnectAPI.client.in_house?
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DEVELOPMENT if Sigh.config[:development]
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DIRECT if Sigh.config[:developer_id]
       when "catalyst"
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_STORE
+        @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_INHOUSE if Spaceship::ConnectAPI.client.in_house?
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DEVELOPMENT if Sigh.config[:development]
         @profile_type = Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DIRECT if Sigh.config[:developer_id]
       end
@@ -114,7 +116,7 @@ module Sigh
 
       # Take the provisioning profile name into account
       results = filter_profiles_by_name(results) if Sigh.config[:provisioning_name].to_s.length > 0
-      return results if Sigh.config[:skip_certificate_verification]
+      return results if Sigh.config[:skip_certificate_verification] || Sigh.config[:include_all_certificates]
 
       UI.message("Verifying certificates...")
       return results.find_all do |current_profile|
@@ -251,7 +253,13 @@ module Sigh
           ]
         elsif profile_type == Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_DIRECT || profile_type == Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_DIRECT
           types = [
-            Spaceship::ConnectAPI::Certificate::CertificateType::DEVELOPER_ID_APPLICATION
+            Spaceship::ConnectAPI::Certificate::CertificateType::DEVELOPER_ID_APPLICATION,
+            Spaceship::ConnectAPI::Certificate::CertificateType::DEVELOPER_ID_APPLICATION_G2
+          ]
+        elsif profile_type == Spaceship::ConnectAPI::Profile::ProfileType::MAC_APP_INHOUSE || profile_type == Spaceship::ConnectAPI::Profile::ProfileType::MAC_CATALYST_APP_INHOUSE
+          # Enterprise accounts don't have access to Apple Distribution certificates
+          types = [
+            Spaceship::ConnectAPI::Certificate::CertificateType::MAC_APP_DISTRIBUTION
           ]
         else
           types = [
@@ -281,7 +289,9 @@ module Sigh
                        when 'macos', 'catalyst'
                          [Spaceship::ConnectAPI::Device::DeviceClass::MAC]
                        end
-
+      if Sigh.config[:platform].to_s == 'ios' && Sigh.config[:include_mac_in_profiles]
+        device_classes += [Spaceship::ConnectAPI::Device::DeviceClass::APPLE_SILICON_MAC]
+      end
       if Spaceship::ConnectAPI.token
         return Spaceship::ConnectAPI::Device.all.select do |device|
           device_classes.include?(device.device_class)
@@ -311,7 +321,7 @@ module Sigh
 
       # verify certificates
       if Helper.mac?
-        unless Sigh.config[:skip_certificate_verification]
+        unless Sigh.config[:skip_certificate_verification] || Sigh.config[:include_all_certificates]
           certificates = certificates.find_all do |c|
             file = Tempfile.new('cert')
             raw_data = Base64.decode64(c.certificate_content)

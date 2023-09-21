@@ -48,7 +48,6 @@ def before_each_spaceship
   PortalStubbing.adp_stub_persons
   PortalStubbing.adp_stub_website_pushes
   PortalStubbing.adp_stub_passbooks
-
   TunesStubbing.itc_stub_applications
   TunesStubbing.itc_stub_app_versions
   TunesStubbing.itc_stub_build_trains
@@ -68,8 +67,10 @@ def before_each_spaceship
   TunesStubbing.itc_stub_promocodes_history
   TunesStubbing.itc_stub_supported_countries
 
+  ConnectAPIStubbing::Provisioning.stub_available_bundle_id_capabilities
   ConnectAPIStubbing::Provisioning.stub_bundle_ids
   ConnectAPIStubbing::Provisioning.stub_bundle_id
+  ConnectAPIStubbing::Provisioning.stub_patch_bundle_id_capability
   ConnectAPIStubbing::Provisioning.stub_certificates
   ConnectAPIStubbing::Provisioning.stub_devices
   ConnectAPIStubbing::Provisioning.stub_profiles
@@ -86,6 +87,7 @@ def before_each_spaceship
   ConnectAPIStubbing::TestFlight.stub_beta_testers
   ConnectAPIStubbing::TestFlight.stub_beta_tester_metrics
   ConnectAPIStubbing::TestFlight.stub_build_beta_details
+  ConnectAPIStubbing::TestFlight.stub_build_bundles
   ConnectAPIStubbing::TestFlight.stub_build_deliveries
   ConnectAPIStubbing::TestFlight.stub_builds
   ConnectAPIStubbing::TestFlight.stub_pre_release_versions

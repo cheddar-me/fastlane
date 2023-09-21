@@ -1,5 +1,41 @@
 describe Scan do
   describe Scan::DetectValues do
+    describe 'Xcode project' do
+      describe 'detects FastlaneCore::Project' do
+        it 'with no :project or :package_path given', requires_xcodebuild: true do
+          # Mocks input from detect_projects
+          project = FastlaneCore::Project.new({
+            project: "./scan/examples/standard/app.xcodeproj"
+          })
+
+          expect(FastlaneCore::Project).to receive(:detect_projects)
+          expect(FastlaneCore::Project).to receive(:new).and_return(project)
+
+          options = {}
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+        end
+
+        it 'with :project given', requires_xcodebuild: true do
+          expect(FastlaneCore::Project).to receive(:detect_projects)
+          expect(FastlaneCore::Project).to receive(:new).and_call_original
+
+          options = { project: "./scan/examples/standard/app.xcodeproj" }
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+        end
+      end
+    end
+
+    describe 'SPM package' do
+      describe 'does not attempt to detect FastlaneCore::Project' do
+        it 'with :package_path given', requires_xcodebuild: true do
+          expect(FastlaneCore::Project).to_not(receive(:detect_projects))
+
+          options = { package_path: "./scan/examples/package/" }
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+        end
+      end
+    end
+
     describe 'Xcode config handling' do
       before do
         options = { project: "./scan/examples/standard/app.xcodeproj" }
@@ -37,9 +73,36 @@ describe Scan do
           expect(Scan.config[:destination].first).to match(/platform=macOS,variant=Mac Catalyst/)
         end
       end
+
+      context ":run_rosetta_simulator" do
+        it "adds arch=x86_64 if true", requires_xcodebuild: true do
+          options = { project: "./scan/examples/standard/app.xcodeproj", run_rosetta_simulator: true }
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+          expect(Scan.config[:destination].first).to match(/platform=iOS/)
+          expect(Scan.config[:destination].first).to match(/,arch=x86_64/)
+        end
+
+        it "does not add arch=x86_64 if false", requires_xcodebuild: true do
+          options = { project: "./scan/examples/standard/app.xcodeproj", run_rosetta_simulator: false }
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+          expect(Scan.config[:destination].first).to match(/platform=iOS/)
+          expect(Scan.config[:destination].first).to_not(match(/,arch=x86_64/))
+        end
+
+        it "does not add arch=x86_64 by default", requires_xcodebuild: true do
+          options = { project: "./scan/examples/standard/app.xcodeproj" }
+          Scan.config = FastlaneCore::Configuration.create(Scan::Options.available_options, options)
+          expect(Scan.config[:destination].first).to match(/platform=iOS/)
+          expect(Scan.config[:destination].first).to_not(match(/,arch=x86_64/))
+        end
+      end
     end
 
     describe "validation" do
+      before(:each) do
+        allow(Fastlane::Helper::XcodebuildFormatterHelper).to receive(:xcbeautify_installed?).and_return(false)
+      end
+
       it "advises of problems with multiple output_types and a custom_report_file_name", requires_xcodebuild: true do
         options = {
           project: "./scan/examples/standard/app.xcodeproj",

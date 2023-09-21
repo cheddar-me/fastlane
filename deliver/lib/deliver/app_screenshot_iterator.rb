@@ -80,13 +80,13 @@ module Deliver
         screenshots_per_display_type = screenshots_for_language.reject { |screenshot| screenshot.device_type.nil? }.group_by(&:device_type)
 
         screenshots_per_display_type.each do |display_type, screenshots|
-          # create AppScreenshotSet for given display_type if it doesn't exsit
+          # create AppScreenshotSet for given display_type if it doesn't exist
           app_screenshot_set = (app_screenshot_set_per_locale_and_display_type[language] || {})[display_type]
           app_screenshot_set ||= localization.create_app_screenshot_set(attributes: { screenshotDisplayType: display_type })
 
           # iterate over screenshots per display size with index
-          screenshots.each do |screenshot|
-            yield(localization, app_screenshot_set, screenshot)
+          screenshots.each.with_index do |screenshot, index|
+            yield(localization, app_screenshot_set, screenshot, index)
           end
         end
       end

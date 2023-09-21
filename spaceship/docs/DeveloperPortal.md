@@ -91,7 +91,7 @@ Examples:
 # Find a specific app based on the bundle identifier
 app = Spaceship::Portal.app.find("com.krausefx.app")
 
-# Get detail informations (e.g. see all enabled app services)
+# Get detail information (e.g. see all enabled app services)
 app.details
 
 # Enable HealthKit, but make sure HomeKit is disabled
@@ -359,7 +359,7 @@ profiles = Spaceship::Portal.provisioning_profile.in_house.all
 
 ### Multiple Spaceships
 
-Sometimes one _spaceship_ just isn't enough. That's why this library has its own Spaceship Launcher to launch and use multiple _spaceships_ at the same time :rocket:
+Sometimes one _spaceship_ just isn't enough. That's why this library has its own _spaceship_ launcher to launch and use multiple _spaceships_ at the same time :rocket:
 
 ```ruby
 # Launch 2 spaceships
